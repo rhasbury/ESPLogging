@@ -83,7 +83,7 @@ void loop() {
   
   if (my_conn.connect(server_addr, 3306, user, db_password))
   {   
-     delay(5000);
+     delay(300000);
      MySQL_Cursor *cur_mem = new MySQL_Cursor(&my_conn);     
      cur_mem->execute(INSERT_SQL);
      delete cur_mem;
