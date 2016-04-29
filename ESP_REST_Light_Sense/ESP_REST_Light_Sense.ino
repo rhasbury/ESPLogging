@@ -16,8 +16,8 @@
 aREST rest = aREST();
 
 // WiFi parameters
-const char* ssid = "grhl2";
-const char* password = "$Service";
+const char* ssid = "wifi2";
+const char* password = "connectome";
 
 // The port to listen for incoming TCP connections
 #define LISTEN_PORT           80
