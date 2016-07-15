@@ -7,6 +7,16 @@
 #include <ESP8266WiFi.h>
 #include <string.h>
 
+// constants for Sharp GP2Y1010AU0F Particle Sensor
+const int ledPower = 12;
+const int delayTime=280;
+const int dustPin=A0;
+const int delayTime2=40;
+
+// disable sql logging
+const int loggingenabled = 1;
+
+int loopdelay = 150000;
 
 // WiFi parameters
 const char* ssid = "ssid";
@@ -36,23 +46,12 @@ void setup() {
   pinMode(4, OUTPUT);
   pinMode(5, OUTPUT);
   pinMode(D0, OUTPUT);
-
+  pinMode(ledPower,OUTPUT);
+  
   // Connect to BMP180
   if (!bmp.begin(BMP085_MODE_STANDARD)) {
                     Serial.println("Could not find a valid BMP085 sensor, check wiring!");                    
     }
-
-  // Connect to WiFi
-  //WiFi.begin(ssid, wifi_password);
-  //while (WiFi.status() != WL_CONNECTED) {
-  //  delay(500);
-  //  Serial.print(".");
-  //}
-  //Serial.println("");
-  //Serial.println("WiFi connected");
-  
-  // Print the IP address
-  //Serial.println(WiFi.localIP());
 
   // Initialize APDS-9930 (configure I2C and initial values)
   if ( apds.init() ) { Serial.println("APDS-9930 initialization complete");  } 
@@ -74,6 +73,7 @@ void loop() {
     float ambient_light = 0;
     char outstr[15];
     char INSERT_SQL[100] = {0};
+    int dustVal;
     
     if (  !apds.readAmbientLightLux(ambient_light) ||
           !apds.readCh0Light(ch0) || 
@@ -84,6 +84,7 @@ void loop() {
       Serial.print("Ambient: ");
       Serial.print(ambient_light);
       Serial.print("\n");
+      
       // Log to mysql database
       dtostrf(ambient_light,7, 3, outstr);
       char stringone[] = "INSERT INTO temps.lightdat VALUES (NOW(), \"NodeMCU\", ";
@@ -91,23 +92,38 @@ void loop() {
       strcat(INSERT_SQL, stringone);
       strcat(INSERT_SQL, outstr);
       strcat(INSERT_SQL, stringtwo);
+      
       logLine(INSERT_SQL);
+      
     }
-    
-    
-    
-    Serial.print("Gas Reading: ");
-    Serial.print(analogRead(A0));
+
+     
+      
+      Serial.print("about to set LED on: ");  
+     digitalWrite(ledPower,HIGH); // power on the LED
+     delayMicroseconds(delayTime);
+     Serial.print("Led on. Now reading dust ");  
+     dustVal=analogRead(dustPin); // read the dust value
+     //Serial.println(analogRead(dustPin));      
+     delayMicroseconds(delayTime2);
+     digitalWrite(ledPower,LOW); // turn the LED off
+      //delayMicroseconds(offTime);
+      
+      
+     //Serial.println(analogRead(gasPin2));    
+        
+    Serial.print("Dust Reading: ");
+    Serial.print(dustVal);
     Serial.print("\n");
     
     memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
-    char stringone[] = "INSERT INTO temps.gasdat VALUES (NOW(), 'NodeMCU', 'MQ-7', ";
+    char stringone[] = "INSERT INTO temps.gasdat VALUES (NOW(), 'NodeMCU', 'GY-Dust', ";
     char stringtwo[] = ")";      
     strcat(INSERT_SQL, stringone);
-    strcat(INSERT_SQL, itoa(analogRead(A0),outstr,10));
+    strcat(INSERT_SQL, itoa(dustVal,outstr,10));
     strcat(INSERT_SQL, stringtwo);
     logLine(INSERT_SQL);
-    
+      
   
     sensors_event_t event;
     bmp.getEvent(&event);     
@@ -127,6 +143,7 @@ void loop() {
       strcat(INSERT_SQL, stringone);
       strcat(INSERT_SQL, outstr);
       strcat(INSERT_SQL, stringtwo);
+      
       logLine(INSERT_SQL);
       
       /* First we get the current temperature from the BMP085 */
@@ -164,10 +181,11 @@ void loop() {
     // Activity blink
     digitalWrite(5, HIGH);
     digitalWrite(4, LOW);
-    delay(500);
+    delay(loopdelay);
     digitalWrite(4, HIGH);
     digitalWrite(5, LOW);
-    delay(150000);
+    delay(loopdelay);
+    
    
    }
 
@@ -190,20 +208,20 @@ void loop() {
 
 
 void logLine(char line[]){
-
-    if (my_conn.connect(server_addr, 3306, user, db_password))
-    {   
-       //Serial.println(line);
-       MySQL_Cursor *cur_mem = new MySQL_Cursor(&my_conn);     
-       cur_mem->execute(line);
-       delete cur_mem;
-       Serial.println("Query Success!"); 
-    } 
-    else
-    {
-      Serial.println("Connection failed.");
+    if(loggingenabled){
+      if (my_conn.connect(server_addr, 3306, user, db_password))
+      {   
+         //Serial.println(line);
+         MySQL_Cursor *cur_mem = new MySQL_Cursor(&my_conn);     
+         cur_mem->execute(line);
+         delete cur_mem;
+         Serial.println("Query Success!"); 
+      } 
+      else
+      {
+        Serial.println("Connection failed.");
+      }
     }
-
 }
 
 
