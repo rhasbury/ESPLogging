@@ -16,9 +16,10 @@ const int delayTime2=40;
 // disable sql logging
 const int loggingenabled = 1;
 
-int loopdelay = 150000;
+int loopdelay = 600000;
 
 // WiFi parameters
+
 const char* ssid = "ssid";
 const char* wifi_password = "password";
 // Address of mysql server
