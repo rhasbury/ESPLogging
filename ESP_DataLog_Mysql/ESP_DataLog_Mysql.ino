@@ -31,8 +31,8 @@ int dustSensorCoefficent = 32000;
 // WiFi parameters
 
 // WiFi parameters
-const char* ssid = "grhl2";
-const char* wifi_password = "$Service";
+const char* ssid = "ssid";
+const char* wifi_password = "password";
 // Address of mysql server
 IPAddress server_addr(192, 168, 0, 105);
 
