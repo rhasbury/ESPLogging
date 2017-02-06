@@ -1,3 +1,5 @@
+//#include <Adafruit_ADS1015.h>
+
 #include <Adafruit_BMP085_U.h>
 #include <Adafruit_Sensor.h>
 #include <MySQL_Connection.h>
@@ -6,6 +8,13 @@
 #include <Wire.h>
 #include <ESP8266WiFi.h>
 #include <string.h>
+
+#include "ADS1115.h"
+
+ADS1115 adc0(0x49);
+
+// Wire ADS1115 ALERT/RDY pin to Arduino pin 2
+const int alertReadyPin = 13;
 
 // constants for Sharp GP2Y1010AU0F Particle Sensor
 const int ledPower = 12;
@@ -16,14 +25,16 @@ const int delayTime2=40;
 // disable sql logging
 const int loggingenabled = 1;
 
-int loopdelay = 600000;
+int loopdelay = 600;
+int dustSensorCoefficent = 32000;
 
 // WiFi parameters
 
-const char* ssid = "ssid";
-const char* wifi_password = "password";
+// WiFi parameters
+const char* ssid = "grhl2";
+const char* wifi_password = "$Service";
 // Address of mysql server
-IPAddress server_addr(192, 168, 1, 104);
+IPAddress server_addr(192, 168, 0, 105);
 
 
 /* Setup for the Connector/Arduino */
@@ -36,34 +47,56 @@ char db_password[] = "password";
 
 
 Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
-
 APDS9930 apds = APDS9930();
 
-void setup() {
-  // put your setup code here, to run once:
-  // Start Serial
-  Serial.begin(115200);
-  pinMode(A0, INPUT);
-  pinMode(4, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(D0, OUTPUT);
-  pinMode(ledPower,OUTPUT);
-  
-  // Connect to BMP180
-  if (!bmp.begin(BMP085_MODE_STANDARD)) {
-                    Serial.println("Could not find a valid BMP085 sensor, check wiring!");                    
-    }
 
-  // Initialize APDS-9930 (configure I2C and initial values)
-  if ( apds.init() ) { Serial.println("APDS-9930 initialization complete");  } 
-  else { Serial.println("Something went wrong during APDS-9930 init!"); }
+void setup() {
+
+    // Start Serial
+    Serial.begin(115200);
+    // Setup digital pins
+    pinMode(A0, INPUT);
+    pinMode(4, OUTPUT);
+    pinMode(5, OUTPUT);
+    pinMode(D0, OUTPUT);
+    pinMode(ledPower,OUTPUT);
   
-  // Start running the APDS-9930 light sensor (no interrupts)
-  if ( apds.enableLightSensor(false) ) {
-    Serial.println("Light sensor is now running");
-  } else {
-    Serial.println("Something went wrong during light sensor init!");
-  }
+    // Connect to BMP180
+    if (!bmp.begin(BMP085_MODE_STANDARD)) {
+                      Serial.println("Could not find a valid BMP085 sensor, check wiring!");
+                      }
+    
+    
+    // Initialize APDS-9930 (configure I2C and initial values)
+    if ( apds.init() ) { 
+                      Serial.println("APDS-9930 initialization complete");  
+                      } 
+    else { 
+                      Serial.println("Something went wrong during APDS-9930 init!"); 
+                      }
+    
+    // Start running the APDS-9930 light sensor (no interrupts)
+    if ( apds.enableLightSensor(false) ) {
+                      Serial.println("Light sensor is now running");
+                      } 
+    else {
+                      Serial.println("Something went wrong during light sensor init!");
+                      }
+    
+    // Setup for the ADS1115 ADC
+    Wire.begin(2, 14);    
+    Serial.println("Testing device connections...");
+    Serial.println(adc0.testConnection() ? "ADS1115 connection successful" : "ADS1115 connection failed");
+    adc0.initialize(); // initialize ADS1115 16 bit A/D chip
+    // We're going to do single shot sampling
+    adc0.setMode(ADS1115_MODE_SINGLESHOT);
+    adc0.setRate(ADS1115_RATE_128);
+    adc0.setGain(ADS1115_PGA_4P096);
+    // ALERT/RDY pin will indicate when conversion is ready    
+    pinMode(alertReadyPin,INPUT_PULLUP);
+    adc0.setConversionReadyPinMode();
+  
+  
 }
 
 void loop() {
@@ -74,13 +107,15 @@ void loop() {
     float ambient_light = 0;
     char outstr[15];
     char INSERT_SQL[100] = {0};
-    int dustVal;
+    float dustVal;
+    float RainVal;
     
     if (  !apds.readAmbientLightLux(ambient_light) ||
           !apds.readCh0Light(ch0) || 
           !apds.readCh1Light(ch1) ) {
             Serial.println("Error reading light values");
-    } else {
+    } 
+    else {
       // print ambient light level
       Serial.print("Ambient: ");
       Serial.print(ambient_light);
@@ -99,24 +134,25 @@ void loop() {
     }
 
      
+    Serial.print("about to set LED on: ");  
+    digitalWrite(ledPower,HIGH); // power on the LED
+    delayMicroseconds(delayTime);
+    Serial.println("Led on. Now reading dust ");  
+    //dustVal=analogRead(dustPin); // read the dust value
+    adc0.setMultiplexer(ADS1115_MUX_P1_NG);
+    adc0.triggerConversion();
+    pollAlertReadyPin();
+    dustVal = adc0.getMilliVolts(false); // * dustSensorCoefficent;    
+    delayMicroseconds(delayTime2);
+    digitalWrite(ledPower,LOW); // turn the LED off
+    //delayMicroseconds(offTime);
+    
+
       
-      Serial.print("about to set LED on: ");  
-     digitalWrite(ledPower,HIGH); // power on the LED
-     delayMicroseconds(delayTime);
-     Serial.print("Led on. Now reading dust ");  
-     dustVal=analogRead(dustPin); // read the dust value
-     //Serial.println(analogRead(dustPin));      
-     delayMicroseconds(delayTime2);
-     digitalWrite(ledPower,LOW); // turn the LED off
-      //delayMicroseconds(offTime);
-      
-      
-     //Serial.println(analogRead(gasPin2));    
-        
     Serial.print("Dust Reading: ");
     Serial.print(dustVal);
     Serial.print("\n");
-    
+  
     memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
     char stringone[] = "INSERT INTO temps.gasdat VALUES (NOW(), 'NodeMCU', 'GY-Dust', ";
     char stringtwo[] = ")";      
@@ -125,7 +161,7 @@ void loop() {
     strcat(INSERT_SQL, stringtwo);
     logLine(INSERT_SQL);
       
-  
+
     sensors_event_t event;
     bmp.getEvent(&event);     
     if (event.pressure)
@@ -155,30 +191,43 @@ void loop() {
       Serial.println(" C");
       memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
       memset( stringone, 0, sizeof(stringone));
-      //memset( stringone, 0, sizeof(stringone));
       strcpy(stringone, "INSERT INTO temps.tempdat VALUES (NOW(), 'NodeMCU', ");
-      //char stringone[] = "INSERT INTO temps.tempdat VALUES (NOW(), 'NodeMCU', ";
-      //char stringtwo[] = ")";      
       dtostrf(temperature,7, 3, outstr);
       strcat(INSERT_SQL, stringone);
       strcat(INSERT_SQL, outstr);
       strcat(INSERT_SQL, stringtwo);
-      logLine(INSERT_SQL);
   
-      /* Then convert the atmospheric pressure, and SLP to altitude         */
-      /* Update this next line with the current SLP for better results      */
-//      float seaLevelPressure = SENSORS_PRESSURE_SEALEVELHPA;
-//      Serial.print("Altitude:    "); 
-//      Serial.print(bmp.pressureToAltitude(seaLevelPressure,
-//                                          event.pressure)); 
-//      Serial.println(" m");
-//      Serial.println("");
+      logLine(INSERT_SQL);
+    
+
     }
     else
     {
-      Serial.println("Sensor error");
+        Serial.println("Sensor error");
     }
 
+
+         
+    adc0.setMultiplexer(ADS1115_MUX_P0_NG);
+    adc0.triggerConversion();
+    pollAlertReadyPin();
+    RainVal = adc0.getMilliVolts(false); 
+    
+    Serial.print("Rain Reading: ");
+    Serial.print(RainVal);
+    Serial.print("\n");  
+    
+    memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
+    memset( stringone, 0, sizeof(stringone));    
+    strcpy(stringone, "INSERT INTO temps.raindat VALUES (NOW(), 'NodeMCU', 'Rain-1', ");    
+    dtostrf(RainVal,7, 3, outstr);
+    strcat(INSERT_SQL, stringone);
+    strcat(INSERT_SQL, outstr);
+    strcat(INSERT_SQL, stringtwo);
+
+    logLine(INSERT_SQL);
+
+    
     // Activity blink
     digitalWrite(5, HIGH);
     digitalWrite(4, LOW);
@@ -189,6 +238,7 @@ void loop() {
     
    
    }
+
 
   
   
@@ -205,6 +255,15 @@ void loop() {
 
   }
    
+}
+
+
+/** Poll the assigned pin for conversion status 
+ */
+void pollAlertReadyPin() {
+  for (uint32_t i = 0; i<100000; i++)
+    if (!digitalRead(alertReadyPin)) return;
+   Serial.println("Failed to wait for AlertReadyPin, it's stuck high!");
 }
 
 
@@ -226,19 +285,5 @@ void logLine(char line[]){
 }
 
 
-//
-//void displaySensorDetails(void)
-//{
-//  sensor_t sensor;
-//  bmp.getSensor(&sensor);
-//  Serial.println("------------------------------------");
-//  Serial.print  ("Sensor:       "); Serial.println(sensor.name);
-//  Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
-//  Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id);
-//  Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" hPa");
-//  Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" hPa");
-//  Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" hPa");  
-//  Serial.println("------------------------------------");
-//  Serial.println("");
-//  delay(500);
-//}
+
+
