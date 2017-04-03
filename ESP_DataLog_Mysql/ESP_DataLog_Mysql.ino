@@ -25,16 +25,16 @@ const int delayTime2=40;
 // disable sql logging
 const int loggingenabled = 1;
 
-int loopdelay = 600;
+int loopdelay = 600000;
 int dustSensorCoefficent = 32000;
 
 // WiFi parameters
 
 // WiFi parameters
-const char* ssid = "ssid";
-const char* wifi_password = "password";
+const char* ssid = "CaptainSweatPantalons";
+const char* wifi_password = "thesweatiesto";
 // Address of mysql server
-IPAddress server_addr(192, 168, 0, 105);
+IPAddress server_addr(192, 168, 1, 104);
 
 
 /* Setup for the Connector/Arduino */
@@ -207,10 +207,13 @@ void loop() {
     }
 
 
-         
+    Serial.println("adc0.setMultiplexer(ADS1115_MUX_P0_NG);");        
     adc0.setMultiplexer(ADS1115_MUX_P0_NG);
+    Serial.println("adc0.triggerConversion();");        
     adc0.triggerConversion();
+    Serial.println("pollAlertReadyPin();");        
     pollAlertReadyPin();
+    Serial.println("RainVal = adc0.getMilliVolts(false); ");        
     RainVal = adc0.getMilliVolts(false); 
     
     Serial.print("Rain Reading: ");
@@ -220,6 +223,31 @@ void loop() {
     memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
     memset( stringone, 0, sizeof(stringone));    
     strcpy(stringone, "INSERT INTO temps.raindat VALUES (NOW(), 'NodeMCU', 'Rain-1', ");    
+    dtostrf(RainVal,7, 3, outstr);
+    strcat(INSERT_SQL, stringone);
+    strcat(INSERT_SQL, outstr);
+    strcat(INSERT_SQL, stringtwo);
+    Serial.println("Logging Rain Reading");
+    logLine(INSERT_SQL); 
+    Serial.println("Rain Reading Logged");
+
+
+    Serial.println("adc0.setMultiplexer(ADS1115_MUX_P2_NG);");
+    adc0.setMultiplexer(ADS1115_MUX_P2_NG);
+    Serial.println("adc0.triggerConversion();");
+    adc0.triggerConversion();
+    Serial.println("pollAlertReadyPin();");
+    pollAlertReadyPin();
+    Serial.println("RainVal = adc0.getMilliVolts(false); ");
+    RainVal = adc0.getMilliVolts(false); 
+
+    Serial.print("MQ-7 Reading: ");
+    Serial.print(RainVal);
+    Serial.print("\n");  
+    
+    memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
+    memset( stringone, 0, sizeof(stringone));        
+    strcpy(stringone, "INSERT INTO temps.gasdat VALUES (NOW(), 'NodeMCU', 'MQ-7', ");    
     dtostrf(RainVal,7, 3, outstr);
     strcat(INSERT_SQL, stringone);
     strcat(INSERT_SQL, outstr);
@@ -254,7 +282,10 @@ void loop() {
       Serial.println(WiFi.localIP());
 
   }
-   
+  Serial.println("Outside of loop for some reason");
+  Serial.println(WiFi.status());
+  delay(1000);
+  
 }
 
 
@@ -269,13 +300,20 @@ void pollAlertReadyPin() {
 
 void logLine(char line[]){
     if(loggingenabled){
+      Serial.println("Getting ready for logging"); 
       if (my_conn.connect(server_addr, 3306, user, db_password))
       {   
-         //Serial.println(line);
+         Serial.println("Logging this line:"); 
+         Serial.println(line);
+         Serial.println("Creating cursor:"); 
          MySQL_Cursor *cur_mem = new MySQL_Cursor(&my_conn);     
+         Serial.println("Cursor created, executing query"); 
          cur_mem->execute(line);
+         Serial.println("Query executed, delteing cursor"); 
          delete cur_mem;
-         Serial.println("Query Success!"); 
+         Serial.println("Deleted cursor. Closing Connection");          
+         my_conn.close();
+         Serial.println("Connection closed. Done logline()"); 
       } 
       else
       {
