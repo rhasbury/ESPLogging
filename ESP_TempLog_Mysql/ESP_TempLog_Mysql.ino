@@ -17,10 +17,8 @@ int i = 0;
 Adafruit_BMP280 bme; // I2C
 
 // WiFi parameters
-//const char* ssid = "grhl2";
-//const char* wifi_password = "$Service";
-const char* ssid = "grhl2";
-const char* wifi_password = "$Service";
+//const char* ssid = "ssid";
+//const char* wifi_password = "password";
 // Address of mysql server
 IPAddress server_addr(192, 168, 0, 101);
 
@@ -61,8 +59,9 @@ void loop() {
     char INSERT_SQL[100] = {0};
     float tempVal;
     
-    if(digitalRead(buttonPin) == HIGH)
+    if(digitalRead(buttonPin) == LOW)
     {
+      Serial.print("button has been pressed");
       i = 120;
       loopdelay = 60000;
     }
