@@ -6,21 +6,24 @@
 #include <Wire.h>
 #include <ESP8266WiFi.h>
 #include <string.h>
+#include <EEPROM.h>
+char sID[7];
+
+#define LOOPDELAY = 120000
 
 
 // disable sql logging
 const int loggingenabled = 1;
-int loopdelay = 300000;
+int loopdelay = LOOPDELAY;
 const int buttonPin = 16;
 int i = 0;
 
 Adafruit_BMP280 bme; // I2C
 
 // WiFi parameters
-//const char* ssid = "ssid";
-//const char* wifi_password = "password";
+
 // Address of mysql server
-IPAddress server_addr(192, 168, 0, 101);
+IPAddress server_addr(192, 168, 1, 104);
 
 /* Setup for the Connector/Arduino */
 WiFiClient client;
@@ -30,15 +33,18 @@ MySQL_Connection my_conn((Client *)&client);
 char user[] = "monitor";
 char db_password[] = "password";
 
-
-//#Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
-//APDS9930 apds = APDS9930();
+char outstr[15];
+char INSERT_SQL[100] = {0};
+float tempVal;
 
 
 void setup() {
 
     // Start Serial
     Serial.begin(115200);
+    for (int i=0; i<6; i++) {
+      sID[i] = EEPROM.read(i);
+    }
     pinMode(buttonPin, INPUT);
     WiFi.mode(WIFI_STA);
     Wire.begin(2,0);    
@@ -48,6 +54,25 @@ void setup() {
                       }
   
 }
+
+void logLine(char line[]){
+    if(loggingenabled){
+      if (my_conn.connect(server_addr, 3306, user, db_password))
+      {   
+         //Serial.println(line);
+         MySQL_Cursor *cur_mem = new MySQL_Cursor(&my_conn);     
+         cur_mem->execute(line);
+         delete cur_mem;
+         Serial.println("Query Success!"); 
+      } 
+      else
+      {
+        Serial.println("Connection failed.");
+      }
+    }
+}
+
+
 
 void loop() {
   
@@ -69,11 +94,14 @@ void loop() {
     tempVal = bme.readTemperature();
     // Log to mysql database
     dtostrf(tempVal,7, 3, outstr);
-    char stringone[] = "INSERT INTO temps.tempdat VALUES (NOW(), \"Nodemcu1\", ";
-    char stringtwo[] = ")";      
+    char stringone[] = "INSERT INTO temps3.tempdat VALUES (NOW(), \"";
+    char stringtwo[] = "\", ";      
+    char stringthree[] = ")";      
     strcat(INSERT_SQL, stringone);
-    strcat(INSERT_SQL, outstr);
+    strcat(INSERT_SQL, sID);
     strcat(INSERT_SQL, stringtwo);
+    strcat(INSERT_SQL, outstr);
+    strcat(INSERT_SQL, stringthree);
 
     Serial.print(INSERT_SQL);
     logLine(INSERT_SQL);
@@ -92,7 +120,7 @@ void loop() {
       i--;      
       }
      else{
-      loopdelay = 600000;
+      loopdelay = LOOPDELAY;
      }
    
    }
@@ -115,28 +143,13 @@ void loop() {
 
   }
   Serial.print(bme.readTemperature());
+
 }
 
 
 
 
 
-void logLine(char line[]){
-    if(loggingenabled){
-      if (my_conn.connect(server_addr, 3306, user, db_password))
-      {   
-         //Serial.println(line);
-         MySQL_Cursor *cur_mem = new MySQL_Cursor(&my_conn);     
-         cur_mem->execute(line);
-         delete cur_mem;
-         Serial.println("Query Success!"); 
-      } 
-      else
-      {
-        Serial.println("Connection failed.");
-      }
-    }
-}
 
 
 
