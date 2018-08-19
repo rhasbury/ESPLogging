@@ -9,7 +9,7 @@
 #include <EEPROM.h>
 char sID[7];
 
-#define LOOPDELAY = 120000
+#define LOOPDELAY 120000
 
 
 // disable sql logging
@@ -21,7 +21,8 @@ int i = 0;
 Adafruit_BMP280 bme; // I2C
 
 // WiFi parameters
-
+const char* ssid = 
+const char* wifi_password = 
 // Address of mysql server
 IPAddress server_addr(192, 168, 1, 104);
 
@@ -42,6 +43,7 @@ void setup() {
 
     // Start Serial
     Serial.begin(115200);
+    EEPROM.begin(6);
     for (int i=0; i<6; i++) {
       sID[i] = EEPROM.read(i);
     }
@@ -91,10 +93,12 @@ void loop() {
       loopdelay = 60000;
     }
    
+    delay(200);
     tempVal = bme.readTemperature();
     // Log to mysql database
+    delay(200);   
     dtostrf(tempVal,7, 3, outstr);
-    char stringone[] = "INSERT INTO temps3.tempdat VALUES (NOW(), \"";
+    char stringone[] = "INSERT INTO temps.tempdat3 VALUES (NOW(), \"";
     char stringtwo[] = "\", ";      
     char stringthree[] = ")";      
     strcat(INSERT_SQL, stringone);
@@ -134,7 +138,7 @@ void loop() {
       while (WiFi.status() != WL_CONNECTED) {
         delay(2000);
         Serial.println("Trying to connect to wifi");
-        Serial.println(bme.readTemperature());
+        //Serial.println(bme.readTemperature());
       }
       Serial.println("");
       Serial.println("WiFi connected");
@@ -142,14 +146,14 @@ void loop() {
       Serial.println(WiFi.localIP());
 
   }
-  Serial.print(bme.readTemperature());
+  //Serial.print(bme.readTemperature());
+
+
+
+
+
 
 }
-
-
-
-
-
 
 
 
