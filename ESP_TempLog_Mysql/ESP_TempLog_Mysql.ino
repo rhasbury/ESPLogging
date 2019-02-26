@@ -10,7 +10,7 @@
 char sID[7];
 
 #define LOOPDELAY 120000
-
+int loopcount = 0;
 
 // disable sql logging
 const int loggingenabled = 1;
@@ -21,8 +21,8 @@ int i = 0;
 Adafruit_BMP280 bme; // I2C
 
 // WiFi parameters
-const char* ssid = 
-const char* wifi_password = 
+const char* ssid = "CaptainSweatPantalons";
+const char* wifi_password = "thesweatiesto";
 // Address of mysql server
 IPAddress server_addr(192, 168, 1, 104);
 
@@ -98,7 +98,7 @@ void loop() {
     // Log to mysql database
     delay(200);   
     dtostrf(tempVal,7, 3, outstr);
-    char stringone[] = "INSERT INTO temps.tempdat3 VALUES (NOW(), \"";
+    char stringone[] = "INSERT INTO temps.tempdat2 VALUES (NOW(), \"";
     char stringtwo[] = "\", ";      
     char stringthree[] = ")";      
     strcat(INSERT_SQL, stringone);
@@ -111,6 +111,8 @@ void loop() {
     logLine(INSERT_SQL);
       
 
+    loopcount++;
+    if(loopcount > 10) { ESP.restart(); };
     
     // Activity blink
     digitalWrite(5, HIGH);
@@ -154,7 +156,3 @@ void loop() {
 
 
 }
-
-
-
-
