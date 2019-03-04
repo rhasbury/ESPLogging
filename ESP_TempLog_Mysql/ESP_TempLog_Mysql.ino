@@ -102,7 +102,7 @@ void loop() {
     char stringtwo[] = "\", ";      
     char stringthree[] = ")";      
     strcat(INSERT_SQL, stringone);
-    strcat(INSERT_SQL, sID);
+    strcat(INSERT_SQL, sID);      // sql name is first 6 digits loaded in device eeprom
     strcat(INSERT_SQL, stringtwo);
     strcat(INSERT_SQL, outstr);
     strcat(INSERT_SQL, stringthree);
@@ -110,9 +110,12 @@ void loop() {
     Serial.print(INSERT_SQL);
     logLine(INSERT_SQL);
       
-
+    // Restarting every n loops to deal with esp locking up after extended runtimes. 
     loopcount++;
-    if(loopcount > 10) { ESP.restart(); };
+    if(loopcount > 5) { 
+      Serial.println("Restarting");
+      ESP.restart(); 
+    };
     
     // Activity blink
     digitalWrite(5, HIGH);
