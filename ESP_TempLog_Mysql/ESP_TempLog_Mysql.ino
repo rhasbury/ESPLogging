@@ -21,8 +21,8 @@ int i = 0;
 Adafruit_BMP280 bme; // I2C
 
 // WiFi parameters
-const char* ssid = "CaptainSweatPantalons";
-const char* wifi_password = "thesweatiesto";
+const char* ssid = "";
+const char* wifi_password = "";
 // Address of mysql server
 IPAddress server_addr(192, 168, 1, 104);
 
@@ -93,10 +93,10 @@ void loop() {
       loopdelay = 60000;
     }
    
-    delay(200);
+    delay(2000);
     tempVal = bme.readTemperature();
     // Log to mysql database
-    delay(200);   
+    delay(100);   
     dtostrf(tempVal,7, 3, outstr);
     char stringone[] = "INSERT INTO temps.tempdat2 VALUES (NOW(), \"";
     char stringtwo[] = "\", ";      
