@@ -7,7 +7,7 @@
 #include <ESP8266WiFi.h>
 #include <string.h>
 #include <EEPROM.h>
-char sID[7];
+
 
 #define LOOPDELAY 120000
 int loopcount = 0;
@@ -24,7 +24,7 @@ Adafruit_BMP280 bme; // I2C
 //const char* ssid = "";
 //const char* wifi_password = "";
 struct { 
-    char sID[7] = "NC0002";
+    char sID[7] = "";
     char ssid[50] = "";
     char wifi_password[50] = "";
   } StoredData;
@@ -108,7 +108,7 @@ void loop() {
     char stringtwo[] = "\", ";      
     char stringthree[] = ")";      
     strcat(INSERT_SQL, stringone);
-    strcat(INSERT_SQL, sID);      // sql name is first 6 digits loaded in device eeprom
+    strcat(INSERT_SQL, StoredData.sID);      // sql name is first 6 digits loaded in device eeprom
     strcat(INSERT_SQL, stringtwo);
     strcat(INSERT_SQL, outstr);
     strcat(INSERT_SQL, stringthree);
