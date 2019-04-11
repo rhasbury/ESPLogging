@@ -21,8 +21,15 @@ int i = 0;
 Adafruit_BMP280 bme; // I2C
 
 // WiFi parameters
-const char* ssid = "";
-const char* wifi_password = "";
+//const char* ssid = "";
+//const char* wifi_password = "";
+struct { 
+    char sID[7] = "NC0002";
+    char ssid[50] = "";
+    char wifi_password[50] = "";
+  } StoredData;
+int addr = 0;
+
 // Address of mysql server
 IPAddress server_addr(192, 168, 1, 104);
 
@@ -44,9 +51,8 @@ void setup() {
     // Start Serial
     Serial.begin(115200);
     EEPROM.begin(6);
-    for (int i=0; i<6; i++) {
-      sID[i] = EEPROM.read(i);
-    }
+    EEPROM.get(addr,StoredData);
+
     pinMode(buttonPin, INPUT);
     WiFi.mode(WIFI_STA);
     Wire.begin(2,0);    
@@ -138,12 +144,12 @@ void loop() {
   
   
   if(WiFi.status() != WL_CONNECTED){
-      WiFi.begin(ssid, wifi_password);
+      WiFi.begin(StoredData.ssid, StoredData.wifi_password);
       
       while (WiFi.status() != WL_CONNECTED) {
         delay(2000);
         Serial.println("Trying to connect to wifi");
-        //Serial.println(bme.readTemperature());
+        Serial.println("SSID is: "+String(StoredData.ssid));
       }
       Serial.println("");
       Serial.println("WiFi connected");
