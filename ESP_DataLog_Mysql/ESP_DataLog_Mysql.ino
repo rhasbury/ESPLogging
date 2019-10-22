@@ -4,14 +4,17 @@
 #include <Adafruit_Sensor.h>
 #include <MySQL_Connection.h>
 #include <MySQL_Cursor.h>
-#include <APDS9930.h>
 #include <Wire.h>
 #include <ESP8266WiFi.h>
 #include <string.h>
+#include <Adafruit_ADS1015.h>
+#include <EEPROM.h>
+ 
+//#include "ADS1115.h"
 
-#include "ADS1115.h"
+//ADS1115 adc0(0x49);
+Adafruit_ADS1115 adc0(0x49);
 
-ADS1115 adc0(0x49);
 
 // Wire ADS1115 ALERT/RDY pin to Arduino pin 2
 const int alertReadyPin = 13;
@@ -22,17 +25,15 @@ const int delayTime=280;
 const int dustPin=A0;
 const int delayTime2=40;
 
+
 // disable sql logging
-const int loggingenabled = 1;
+const int loggingenabled = 0;
 
 int loopdelay = 600000;
+int sleepdelay = 60e6;
 int dustSensorCoefficent = 32000;
 
-// WiFi parameters
 
-// WiFi parameters
-const char* ssid = "CaptainSweatPantalons";
-const char* wifi_password = "thesweatiesto";
 // Address of mysql server
 IPAddress server_addr(192, 168, 1, 104);
 
@@ -47,13 +48,29 @@ char db_password[] = "password";
 
 
 Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
-APDS9930 apds = APDS9930();
+//APDS9930 apds = APDS9930();
+
+
+// Struct and address for wifi info in eeprom
+struct { 
+    char sID[7] = "";
+    char ssid[50] = "";
+    char wifi_password[50] = "";
+  } StoredData;
+int addr = 0;
 
 
 void setup() {
 
     // Start Serial
     Serial.begin(115200);
+    // Get wifi information from eeprom
+    EEPROM.begin(512);
+    delay(200);
+    EEPROM.get(addr,StoredData);
+    delay(200);
+    Serial.println("SSID is: "+String(StoredData.ssid) + " " + String(StoredData.wifi_password));
+    
     // Setup digital pins
     pinMode(A0, INPUT);
     pinMode(4, OUTPUT);
@@ -65,216 +82,63 @@ void setup() {
     if (!bmp.begin(BMP085_MODE_STANDARD)) {
                       Serial.println("Could not find a valid BMP085 sensor, check wiring!");
                       }
-    
-    
-    // Initialize APDS-9930 (configure I2C and initial values)
-    if ( apds.init() ) { 
-                      Serial.println("APDS-9930 initialization complete");  
-                      } 
-    else { 
-                      Serial.println("Something went wrong during APDS-9930 init!"); 
-                      }
-    
-    // Start running the APDS-9930 light sensor (no interrupts)
-    if ( apds.enableLightSensor(false) ) {
-                      Serial.println("Light sensor is now running");
-                      } 
-    else {
-                      Serial.println("Something went wrong during light sensor init!");
-                      }
-    
+
     // Setup for the ADS1115 ADC
-    Wire.begin(2, 14);    
-    Serial.println("Testing device connections...");
-    Serial.println(adc0.testConnection() ? "ADS1115 connection successful" : "ADS1115 connection failed");
-    adc0.initialize(); // initialize ADS1115 16 bit A/D chip
-    // We're going to do single shot sampling
-    adc0.setMode(ADS1115_MODE_SINGLESHOT);
-    adc0.setRate(ADS1115_RATE_128);
-    adc0.setGain(ADS1115_PGA_4P096);
-    // ALERT/RDY pin will indicate when conversion is ready    
-    pinMode(alertReadyPin,INPUT_PULLUP);
-    adc0.setConversionReadyPinMode();
-  
+    //Wire.begin(2, 14);    
+    Wire.begin();        
+    adc0.setGain(GAIN_ONE);
+    adc0.begin(); // initialize ADS1115 16 bit A/D chip
+
+    
   
 }
 
 void loop() {
+
+  // temporarily outside the connected loop for testing
+//  Get_GyDust_Reading();
+//  Get_BMP_Reading();
+//  Get_Rain_Reading();
+//  Get_MQ7_Reading();
   
   while(WiFi.status() == WL_CONNECTED){
-    uint16_t ch0 = 0;
-    uint16_t ch1 = 1;
-    float ambient_light = 0;
-    char outstr[15];
-    char INSERT_SQL[100] = {0};
-    float dustVal;
-    float RainVal;
-    
-    if (  !apds.readAmbientLightLux(ambient_light) ||
-          !apds.readCh0Light(ch0) || 
-          !apds.readCh1Light(ch1) ) {
-            Serial.println("Error reading light values");
-    } 
-    else {
-      // print ambient light level
-      Serial.print("Ambient: ");
-      Serial.print(ambient_light);
-      Serial.print("\n");
-      
-      // Log to mysql database
-      dtostrf(ambient_light,7, 3, outstr);
-      char stringone[] = "INSERT INTO temps.lightdat VALUES (NOW(), \"NodeMCU\", ";
-      char stringtwo[] = ")";      
-      strcat(INSERT_SQL, stringone);
-      strcat(INSERT_SQL, outstr);
-      strcat(INSERT_SQL, stringtwo);
-      
-      logLine(INSERT_SQL);
-      
-    }
 
-     
-    Serial.print("about to set LED on: ");  
-    digitalWrite(ledPower,HIGH); // power on the LED
-    delayMicroseconds(delayTime);
-    Serial.println("Led on. Now reading dust ");  
-    //dustVal=analogRead(dustPin); // read the dust value
-    adc0.setMultiplexer(ADS1115_MUX_P1_NG);
-    adc0.triggerConversion();
-    pollAlertReadyPin();
-    dustVal = adc0.getMilliVolts(false); // * dustSensorCoefficent;    
-    delayMicroseconds(delayTime2);
-    digitalWrite(ledPower,LOW); // turn the LED off
-    //delayMicroseconds(offTime);
-    
+    Get_GyDust_Reading();
+    Get_BMP_Reading();
+    Get_Rain_Reading();
+    Get_MQ7_Reading();
 
-      
-    Serial.print("Dust Reading: ");
-    Serial.print(dustVal);
-    Serial.print("\n");
-  
-    memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
-    char stringone[] = "INSERT INTO temps.gasdat VALUES (NOW(), 'NodeMCU', 'GY-Dust', ";
-    char stringtwo[] = ")";      
-    strcat(INSERT_SQL, stringone);
-    strcat(INSERT_SQL, itoa(dustVal,outstr,10));
-    strcat(INSERT_SQL, stringtwo);
-    logLine(INSERT_SQL);
-      
-
-    sensors_event_t event;
-    bmp.getEvent(&event);     
-    if (event.pressure)
-    {
-      //displaySensorDetails();
-      /* Display atmospheric pressue in hPa */
-      //Serial.print("Pressure:    ");
-      //Serial.print(event.pressure);
-      //Serial.println(" hPa");  
-      memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
-      char stringone[] = "INSERT INTO temps.pressdat VALUES (NOW(), 'NodeMCU', ";
-      char stringtwo[] = ")";      
-      float pressure;
-      bmp.getPressure(&pressure);
-      dtostrf(pressure,7, 3, outstr);
-      strcat(INSERT_SQL, stringone);
-      strcat(INSERT_SQL, outstr);
-      strcat(INSERT_SQL, stringtwo);
-      
-      logLine(INSERT_SQL);
-      
-      /* First we get the current temperature from the BMP085 */
-      float temperature;
-      bmp.getTemperature(&temperature);
-      Serial.print("Temperature: ");
-      Serial.print(temperature);
-      Serial.println(" C");
-      memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
-      memset( stringone, 0, sizeof(stringone));
-      strcpy(stringone, "INSERT INTO temps.tempdat VALUES (NOW(), 'NodeMCU', ");
-      dtostrf(temperature,7, 3, outstr);
-      strcat(INSERT_SQL, stringone);
-      strcat(INSERT_SQL, outstr);
-      strcat(INSERT_SQL, stringtwo);
-  
-      logLine(INSERT_SQL);
-    
-
-    }
-    else
-    {
-        Serial.println("Sensor error");
-    }
-
-
-    Serial.println("adc0.setMultiplexer(ADS1115_MUX_P0_NG);");        
-    adc0.setMultiplexer(ADS1115_MUX_P0_NG);
-    Serial.println("adc0.triggerConversion();");        
-    adc0.triggerConversion();
-    Serial.println("pollAlertReadyPin();");        
-    pollAlertReadyPin();
-    Serial.println("RainVal = adc0.getMilliVolts(false); ");        
-    RainVal = adc0.getMilliVolts(false); 
-    
-    Serial.print("Rain Reading: ");
-    Serial.print(RainVal);
-    Serial.print("\n");  
-    
-    memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
-    memset( stringone, 0, sizeof(stringone));    
-    strcpy(stringone, "INSERT INTO temps.raindat VALUES (NOW(), 'NodeMCU', 'Rain-1', ");    
-    dtostrf(RainVal,7, 3, outstr);
-    strcat(INSERT_SQL, stringone);
-    strcat(INSERT_SQL, outstr);
-    strcat(INSERT_SQL, stringtwo);
-    Serial.println("Logging Rain Reading");
-    logLine(INSERT_SQL); 
-    Serial.println("Rain Reading Logged");
-
-
-    Serial.println("adc0.setMultiplexer(ADS1115_MUX_P2_NG);");
-    adc0.setMultiplexer(ADS1115_MUX_P2_NG);
-    Serial.println("adc0.triggerConversion();");
-    adc0.triggerConversion();
-    Serial.println("pollAlertReadyPin();");
-    pollAlertReadyPin();
-    Serial.println("RainVal = adc0.getMilliVolts(false); ");
-    RainVal = adc0.getMilliVolts(false); 
-
-    Serial.print("MQ-7 Reading: ");
-    Serial.print(RainVal);
-    Serial.print("\n");  
-    
-    memset( INSERT_SQL, 0, sizeof(INSERT_SQL) );
-    memset( stringone, 0, sizeof(stringone));        
-    strcpy(stringone, "INSERT INTO temps.gasdat VALUES (NOW(), 'NodeMCU', 'MQ-7', ");    
-    dtostrf(RainVal,7, 3, outstr);
-    strcat(INSERT_SQL, stringone);
-    strcat(INSERT_SQL, outstr);
-    strcat(INSERT_SQL, stringtwo);
-
-    logLine(INSERT_SQL);
-
-    
     // Activity blink
+    
     digitalWrite(5, HIGH);
     digitalWrite(4, LOW);
     delay(loopdelay);
     digitalWrite(4, HIGH);
     digitalWrite(5, LOW);
-    delay(loopdelay);
+        
+    ESP.deepSleep(sleepdelay); // Deep sleep mode, wiring must be installed before enabling. 
+    //delay(loopdelay);
+     
+  }
+
     
-   
-   }
-
-
-  
-  
   if(WiFi.status() != WL_CONNECTED){
-      WiFi.begin(ssid, wifi_password);
+      WiFi.begin(StoredData.ssid, StoredData.wifi_password);
+      int connectiontries = 0; 
       while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
+        delay(2000);
+        Serial.println("Trying to connect to wifi");
+        Serial.println("SSID is: "+String(StoredData.ssid));
+        Serial.printf("Connection status: %d\n", WiFi.status());
+        if(connectiontries > 2) { 
+          Serial.println("Fit Wifi disconnecting");
+          WiFi.disconnect();
+          delay(1000);
+          Serial.println("Sleeping for a minute");
+          //ESP.restart(); 
+          ESP.deepSleep(sleepdelay);
+        }; 
+      connectiontries++;
       }
       Serial.println("");
       Serial.println("WiFi connected");
@@ -298,17 +162,125 @@ void pollAlertReadyPin() {
 }
 
 
-void logLine(char line[]){
+
+void Get_BMP_Reading(){
+    //char INSERT_SQL[100] = {0};
+    String INSERT_TO_SQL; 
+    char outstr[15];
+    float pressure;
+    float temperature;
+    
+    sensors_event_t event;
+    bmp.getEvent(&event);     
+    if (event.pressure)
+    {
+      //displaySensorDetails();
+      /* Display atmospheric pressue in hPa */
+      //Serial.print("Pressure:    ");
+      //Serial.print(event.pressure);
+      //Serial.println(" hPa");  
+      
+      bmp.getPressure(&pressure);
+      dtostrf(pressure,7, 3, outstr);
+      
+      INSERT_TO_SQL = String("INSERT INTO temps.pressdat VALUES (NOW(), ") + StoredData.sID + String(", ") + String(outstr) + String(")");             
+      logLine(INSERT_TO_SQL);
+      
+            
+      bmp.getTemperature(&temperature);
+      dtostrf(temperature,7, 3, outstr);
+
+      INSERT_TO_SQL = String("INSERT INTO temps.tempdat VALUES (NOW(), ") + StoredData.sID + String(", ") + outstr + String(")");             
+      logLine(INSERT_TO_SQL);
+
+    }
+    else
+    {
+        Serial.println("Sensor error");
+    }
+}
+
+
+void Get_GyDust_Reading(){
+    
+    String INSERT_TO_SQL; 
+    char outstr[15];
+
+    float dustVal;
+    
+    Serial.println("about to set LED on: ");  
+    digitalWrite(ledPower,HIGH); // power on the LED
+    delayMicroseconds(delayTime);
+    //delay(2000);
+    Serial.println("Led on. Now reading dust ");  
+    dustVal = adc0.readADC_SingleEnded(1);
+    delayMicroseconds(delayTime2);
+    //delay(2000);
+    digitalWrite(ledPower,LOW); // turn the LED off
+    //delayMicroseconds(offTime);
+    delay(2000);
+    Serial.println("Dust Reading: ");
+    Serial.println(dustVal);
+    
+
+
+    INSERT_TO_SQL = String("INSERT INTO temps.gasdat VALUES (NOW(), ") + StoredData.sID + String(", 'GY-Dust', ") + itoa(dustVal,outstr,10) + String(")");             
+    logLine(INSERT_TO_SQL);
+    
+
+}
+
+
+
+void Get_Rain_Reading(){
+    int RainVal;
+    String INSERT_TO_SQL; 
+    char outstr[15];
+    
+    RainVal = adc0.readADC_SingleEnded(0);
+    
+    Serial.print("Rain Reading: ");
+    Serial.print(RainVal);
+    Serial.print("\n");  
+
+    dtostrf(RainVal,7, 3, outstr);
+    INSERT_TO_SQL = String("INSERT INTO temps.raindat VALUES (NOW(), ") + StoredData.sID + String(", 'Rain-1', ") + outstr + String(")");             
+    logLine(INSERT_TO_SQL);
+
+}
+
+
+
+void Get_MQ7_Reading(){
+    int CO;
+    String INSERT_TO_SQL; 
+    char outstr[15];
+    
+    CO = adc0.readADC_SingleEnded(2);
+    
+    Serial.print("MQ-7 Reading: ");
+    Serial.print(CO);
+    Serial.print("\n");  
+
+    dtostrf(CO,7, 3, outstr);
+    INSERT_TO_SQL = String("INSERT INTO temps.gasdat VALUES (NOW(), ") + StoredData.sID + String(", 'MQ-7', ") + outstr + String(")");
+    logLine(INSERT_TO_SQL);
+}
+
+
+void logLine(String line){
+    char INSERT_SQL[100] = {0};
+    line.toCharArray(INSERT_SQL, 100);
     if(loggingenabled){
       Serial.println("Getting ready for logging"); 
       if (my_conn.connect(server_addr, 3306, user, db_password))
       {   
          Serial.println("Logging this line:"); 
-         Serial.println(line);
+         Serial.println(INSERT_SQL);
          Serial.println("Creating cursor:"); 
          MySQL_Cursor *cur_mem = new MySQL_Cursor(&my_conn);     
          Serial.println("Cursor created, executing query"); 
-         cur_mem->execute(line);
+         cur_mem->execute(INSERT_SQL);
          Serial.println("Query executed, delteing cursor"); 
          delete cur_mem;
          Serial.println("Deleted cursor. Closing Connection");          
@@ -320,8 +292,9 @@ void logLine(char line[]){
         Serial.println("Connection failed.");
       }
     }
+    else
+    {
+         Serial.println("Logging disabled this is what would have been logged:"); 
+         Serial.println(INSERT_SQL);
+    }
 }
-
-
-
-
