@@ -27,7 +27,7 @@ const int delayTime2=40;
 
 
 // disable sql logging
-const int loggingenabled = 0;
+const int loggingenabled = 1;
 
 int loopdelay = 600000;
 int sleepdelay = 60e6;
@@ -108,16 +108,13 @@ void loop() {
     Get_Rain_Reading();
     Get_MQ7_Reading();
 
-    // Activity blink
-    
-    digitalWrite(5, HIGH);
-    digitalWrite(4, LOW);
+
+    //Serial.println("Done logging, wifi disconnect");                  
+    //WiFi.disconnect();
+    //ESP.deepSleep(sleepdelay); // Deep sleep mode, wiring must be installed before enabling. 
     delay(loopdelay);
-    digitalWrite(4, HIGH);
-    digitalWrite(5, LOW);
-        
-    ESP.deepSleep(sleepdelay); // Deep sleep mode, wiring must be installed before enabling. 
-    //delay(loopdelay);
+    Serial.println("Resetting");                  
+    ESP.restart(); 
      
   }
 
@@ -131,12 +128,12 @@ void loop() {
         Serial.println("SSID is: "+String(StoredData.ssid));
         Serial.printf("Connection status: %d\n", WiFi.status());
         if(connectiontries > 2) { 
-          Serial.println("Fit Wifi disconnecting");
+          Serial.println("F'it Wifi disconnecting");
           WiFi.disconnect();
           delay(1000);
-          Serial.println("Sleeping for a minute");
-          //ESP.restart(); 
-          ESP.deepSleep(sleepdelay);
+          Serial.println("Connection failed. Restarting");
+          ESP.restart(); 
+          //ESP.deepSleep(sleepdelay);
         }; 
       connectiontries++;
       }
@@ -183,14 +180,14 @@ void Get_BMP_Reading(){
       bmp.getPressure(&pressure);
       dtostrf(pressure,7, 3, outstr);
       
-      INSERT_TO_SQL = String("INSERT INTO temps.pressdat VALUES (NOW(), ") + StoredData.sID + String(", ") + String(outstr) + String(")");             
+      INSERT_TO_SQL = String("INSERT INTO temps.pressdat VALUES (NOW(), '") + StoredData.sID + String("', ") + String(outstr) + String(")");             
       logLine(INSERT_TO_SQL);
       
             
       bmp.getTemperature(&temperature);
       dtostrf(temperature,7, 3, outstr);
 
-      INSERT_TO_SQL = String("INSERT INTO temps.tempdat VALUES (NOW(), ") + StoredData.sID + String(", ") + outstr + String(")");             
+      INSERT_TO_SQL = String("INSERT INTO temps.tempdat2 VALUES (NOW(), '") + StoredData.sID + String("', ") + outstr + String(")");             
       logLine(INSERT_TO_SQL);
 
     }
@@ -224,7 +221,7 @@ void Get_GyDust_Reading(){
     
 
 
-    INSERT_TO_SQL = String("INSERT INTO temps.gasdat VALUES (NOW(), ") + StoredData.sID + String(", 'GY-Dust', ") + itoa(dustVal,outstr,10) + String(")");             
+    INSERT_TO_SQL = String("INSERT INTO temps.gasdat VALUES (NOW(), '") + StoredData.sID + String("', 'GY-Dust', ") + itoa(dustVal,outstr,10) + String(")");             
     logLine(INSERT_TO_SQL);
     
 
@@ -244,7 +241,7 @@ void Get_Rain_Reading(){
     Serial.print("\n");  
 
     dtostrf(RainVal,7, 3, outstr);
-    INSERT_TO_SQL = String("INSERT INTO temps.raindat VALUES (NOW(), ") + StoredData.sID + String(", 'Rain-1', ") + outstr + String(")");             
+    INSERT_TO_SQL = String("INSERT INTO temps.raindat VALUES (NOW(), '") + StoredData.sID + String("', 'Rain-1', ") + outstr + String(")");             
     logLine(INSERT_TO_SQL);
 
 }
@@ -263,7 +260,7 @@ void Get_MQ7_Reading(){
     Serial.print("\n");  
 
     dtostrf(CO,7, 3, outstr);
-    INSERT_TO_SQL = String("INSERT INTO temps.gasdat VALUES (NOW(), ") + StoredData.sID + String(", 'MQ-7', ") + outstr + String(")");
+    INSERT_TO_SQL = String("INSERT INTO temps.gasdat VALUES (NOW(), '") + StoredData.sID + String("', 'MQ-7', ") + outstr + String(")");
     logLine(INSERT_TO_SQL);
 }
 
