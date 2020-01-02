@@ -6,7 +6,7 @@
 #include <EEPROM.h>
 
 
-#define LOOPDELAY 120000
+#define LOOPDELAY 5000; //120000
 int loopcount = 0;
 int connectiontries = 0;
 
@@ -26,7 +26,7 @@ struct {
   } StoredData;
 int addr = 0;
 
-char sID[300] = "";
+//char sID[300] = "";
 
 // Address of mysql server
 IPAddress server_addr(192, 168, 1, 104);
@@ -54,7 +54,7 @@ void setup() {
     EEPROM.get(addr,StoredData);  
     
     WiFi.mode(WIFI_STA);
-          
+    delay(500);
     // Connect to CSS811
     if(!ccs.begin()){
        Serial.println("Failed to start sensor! Please check your wiring.");
@@ -62,7 +62,7 @@ void setup() {
     }
 
     // Wait for the sensor to be ready
-    Serial.println("Waiting for available css.");
+    Serial.println("Waiting for available css811 sensor.");
     while(!ccs.available());
 }
 
@@ -112,7 +112,8 @@ void loop() {
     // Log to mysql database
     delay(100);   
     dtostrf(co2val,7, 3, outstr);
-    char stringone[] = "INSERT INTO temps.gasdat VALUES (NOW(), \"";
+    
+    char stringone[] = "INSERT INTO temps.gasdat2 VALUES (NOW(), \"";
     char stringtwo[] = "\", \"co2\", ";      
     char stringthree[] = ")";      
     strcat(INSERT_SQL, stringone);
@@ -127,6 +128,7 @@ void loop() {
     // Log to mysql database
     delay(100);   
     dtostrf(tvocval,7, 3, outstr);
+    INSERT_SQL[0] = 0;
     //stringone[] = "INSERT INTO temps.gasdat2 VALUES (NOW(), \"";
     char stringfour[] = "\", \"TVOC\", ";           
     strcat(INSERT_SQL, stringone);
@@ -140,12 +142,7 @@ void loop() {
     Serial.println(ESP.getFreeHeap());
       
     
-    // Activity blink
-    digitalWrite(5, HIGH);
-    digitalWrite(4, LOW);
-    delay(loopdelay);
-    digitalWrite(4, HIGH);
-    digitalWrite(5, LOW);
+
     delay(loopdelay);
     
     if(i>0){
