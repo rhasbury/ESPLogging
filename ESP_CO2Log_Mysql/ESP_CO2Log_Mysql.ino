@@ -145,13 +145,7 @@ void loop() {
 
     delay(loopdelay);
     
-    if(i>0){
-      i--;      
-      }
-     else{
-      loopdelay = LOOPDELAY;
-     }
-    // Restarting every n loops to deal with esp locking up after extended runtimes. 
+     // Restarting every n loops to deal with esp locking up after extended runtimes. 
     loopcount++;
     if(loopcount > 5) { 
       Serial.println("Wifi disconnecting");
