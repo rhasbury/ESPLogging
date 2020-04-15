@@ -29,7 +29,7 @@ const int delayTime2=40;
 // disable sql logging
 const int loggingenabled = 1;
 
-int loopdelay = 600000;
+int loopdelay = 120000;
 int sleepdelay = 60e6;
 int dustSensorCoefficent = 32000;
 
@@ -108,6 +108,7 @@ void loop() {
     Get_Rain_Reading();
     Get_MQ7_Reading();
 
+    WiFi.disconnect();
 
     //Serial.println("Done logging, wifi disconnect");                  
     //WiFi.disconnect();
@@ -115,7 +116,6 @@ void loop() {
     delay(loopdelay);
     Serial.println("Resetting");                  
     ESP.restart(); 
-     
   }
 
     
@@ -132,8 +132,9 @@ void loop() {
           WiFi.disconnect();
           delay(1000);
           Serial.println("Connection failed. Restarting");
-          ESP.restart(); 
           //ESP.deepSleep(sleepdelay);
+          ESP.restart(); 
+          
         }; 
       connectiontries++;
       }

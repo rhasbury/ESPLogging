@@ -6,7 +6,7 @@
 #include <EEPROM.h>
 
 
-#define LOOPDELAY 5000; //120000
+#define LOOPDELAY 300000;
 int loopcount = 0;
 int connectiontries = 0;
 
