@@ -11,6 +11,9 @@
 
 #define LOOPDELAY 120000
 int loopcount = 0;
+int connectiontries = 0;
+
+String freeHeap;
 
 // disable sql logging
 const int loggingenabled = 1;
@@ -29,6 +32,8 @@ struct {
     char wifi_password[50] = "";
   } StoredData;
 int addr = 0;
+
+char sID[300] = "";
 
 // Address of mysql server
 IPAddress server_addr(192, 168, 1, 104);
@@ -51,10 +56,12 @@ void setup() {
     // Start Serial
     Serial.begin(115200);
     EEPROM.begin(512);
-    delay(200);
     EEPROM.get(addr,StoredData);
-    delay(200);
-    Serial.println("SSID is: "+String(StoredData.ssid) + " " + String(StoredData.wifi_password));
+  for (int i = 0 ; i < EEPROM.length() ; i++) {
+    Serial.print(EEPROM.read(i));
+  
+      }
+  
     pinMode(buttonPin, INPUT);
     WiFi.mode(WIFI_STA);
     Wire.begin(2,0);    
@@ -63,7 +70,7 @@ void setup() {
                       Serial.println("Could not find a valid BMP280 sensor, check wiring!");
                       }
 
-    bme.setSampling(Adafruit_BMP280::MODE_FORCED,     /* Operating Mode. */
+    bme.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
                   Adafruit_BMP280::SAMPLING_X1,     /* Temp. oversampling */
                   Adafruit_BMP280::SAMPLING_X1,    /* Pressure oversampling */
                   Adafruit_BMP280::FILTER_OFF,      /* Filtering. */
@@ -121,15 +128,10 @@ void loop() {
     strcat(INSERT_SQL, outstr);
     strcat(INSERT_SQL, stringthree);
 
-    Serial.print(INSERT_SQL);
+    Serial.println(INSERT_SQL);
     logLine(INSERT_SQL);
+    Serial.println(ESP.getFreeHeap());
       
-    // Restarting every n loops to deal with esp locking up after extended runtimes. 
-    loopcount++;
-    if(loopcount > 5) { 
-      Serial.println("Restarting");
-      ESP.restart(); 
-    };
     
     // Activity blink
     digitalWrite(5, HIGH);
@@ -145,7 +147,15 @@ void loop() {
      else{
       loopdelay = LOOPDELAY;
      }
-   
+    // Restarting every n loops to deal with esp locking up after extended runtimes. 
+    loopcount++;
+    if(loopcount > 5) { 
+      Serial.println("Wifi disconnecting");
+      WiFi.disconnect();
+      delay(1000);
+      Serial.println("Restarting");
+      ESP.restart(); 
+    };   
    }
 
 
@@ -158,6 +168,15 @@ void loop() {
         delay(2000);
         Serial.println("Trying to connect to wifi");
         Serial.println("SSID is: "+String(StoredData.ssid));
+        Serial.printf("Connection status: %d\n", WiFi.status());
+        if(connectiontries > 5) { 
+          Serial.println("Fit Wifi disconnecting");
+          WiFi.disconnect();
+          delay(1000);
+          Serial.println("Restarting");
+          ESP.restart(); 
+        }; 
+      connectiontries++;
       }
       Serial.println("");
       Serial.println("WiFi connected");
